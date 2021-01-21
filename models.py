@@ -1,9 +1,11 @@
 from __future__ import annotations
+
+import json
 import logging
 from sys import stdout
 from abc import abstractmethod, ABC
 from enum import Enum
-from typing import Dict, Union, NoReturn, Any, List
+from typing import Dict, Union, NoReturn, Any, List, Tuple, Optional
 from extend_builtins import compute
 
 __all__ = (
@@ -14,6 +16,7 @@ __all__ = (
     "Subject",
     "DetailedSubject",
     "Student",
+    "Semester",
     "Keys"
 )
 
@@ -320,13 +323,13 @@ class Student(JsonObject):
     """JsonObject containing student's information"""
 
     @classmethod
-    def fromJson(cls, data: JSON) -> JsonObject:
+    def fromJson(cls, data: JSON) -> Student:
         return cls(
             name=data["name"],
             grade=data["grade"]
         )
 
-    def __init__(self, name: str, grade: int):
+    def __init__(self, name: str, grade: int) -> None:
         self._name: str = name
         self._grade: int = grade
 
@@ -345,13 +348,61 @@ class Student(JsonObject):
 class Semester(JsonObject):
     """Represents `semester` object in config"""
     @classmethod
-    def fromJson(cls, data: JSON) -> JsonObject:
-        pass
+    def fromJson(cls, data: JSON) -> Semester:
+        grade: int = data[Keys.GRADE]
+        semester: int = data[Keys.SemesterKeys.SEMESTER]
 
-    def __init__(self, grade: int, semester: int, subjects: List[Union[Subject, DetailedSubject]]):
+        raw_subjects: List[JSON] = data[Keys.SemesterKeys.SUBJECT_SCORES]
+        subjects: List[Union[Subject, DetailedSubject]] = [
+            DetailedSubject.fromJson(subject)
+            if Keys.SubjectKeys.SCORE in subject
+            else Subject.fromJson(subject)
+            for subject in raw_subjects
+        ]
+        return cls(
+            grade,
+            semester,
+            subjects
+        )
+
+    def __init__(self, grade: int, semester: int, subjects: List[Union[Subject, DetailedSubject]]) -> None:
         self._grade: int = grade
         self._semester: int = semester
         self._subject_list: List[Union[Subject, DetailedSubject]] = subjects
+
+    @property
+    def subjects(self) -> Tuple[Union[Subject, DetailedSubject]]:
+        return tuple(self._subject_list)
+
+    def filter_category(self, category: SubjectCategory) -> Tuple[Subject, ...]:
+        return tuple(filter(
+            lambda s: s.category == category,
+            self._subject_list
+        ))
+
+    @property
+    def korean_subjects(self) -> Tuple[Subject, ...]:
+        return self.filter_category(SubjectCategory.KOREAN)
+
+    @property
+    def math_subjects(self) -> Tuple[Subject, ...]:
+        return self.filter_category(SubjectCategory.MATH)
+
+    @property
+    def english_subjects(self) -> Tuple[Subject, ...]:
+        return self.filter_category(SubjectCategory.ENGLISH)
+
+    @property
+    def science_subjects(self) -> Tuple[Subject, ...]:
+        return self.filter_category(SubjectCategory.SCIENCE)
+
+    @property
+    def sociology_subjects(self) -> Tuple[Subject, ...]:
+        return self.filter_category(SubjectCategory.SOCIOLOGY)
+
+    @property
+    def etc_subjects(self) -> Tuple[Subject, ...]:
+        return self.filter_category(SubjectCategory.ETC)
 
     def toJson(self) -> JSON:
         subject_scores: JSON = {}
@@ -361,6 +412,9 @@ class Semester(JsonObject):
                 lambda subject: subject.toJson(),
                 self._subject_list
             )
+        ).run()
+        logger.debug(
+            json.dumps(subject_scores)
         )
         return {
             Keys.GRADE: self._grade,

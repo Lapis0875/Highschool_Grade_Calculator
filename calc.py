@@ -1,8 +1,9 @@
 import json
 from typing import NoReturn, Tuple, List
-
-from extend_builtins import compute
+from constants import StudentKeys, SemesterKeys
+from extend_builtins import Compute
 from models import *
+from models import Student
 
 
 class SingleGradeCalculator:
@@ -17,16 +18,16 @@ class SingleGradeCalculator:
     @staticmethod
     def parse_data(data: JSON) -> Tuple[Student, List[Semester]]:
         """Parse config data into Calculator"""
-        raw_student: JSON = data[Keys.STUDENT]
+        raw_student: JSON = data[StudentKeys.key]
         student: Student = Student.fromJson(raw_student)
-        raw_semesters: List[JSON] = data[Keys.SEMESTERS]
+        raw_semesters: List[JSON] = data[SemesterKeys.key]
         semesters: List[Semester] = [Semester.fromJson(semester) for semester in raw_semesters]
         return student, semesters
 
     @property
     def korean_subjects(self) -> List[Subject]:
         korean_subjects: List[Subject] = []
-        compute(
+        Compute(
             korean_subjects.extend,
             (semester.korean_subjects for semester in self._semesters)
         ).run()
@@ -35,46 +36,46 @@ class SingleGradeCalculator:
     @property
     def math_subjects(self) -> List[Subject]:
         math_subjects: List[Subject] = []
-        compute(
+        Compute(
             math_subjects.extend,
             (semester.math_subjects for semester in self._semesters)
-        )
+        ).run()
         return math_subjects
 
     @property
     def english_subjects(self) -> List[Subject]:
         english_subjects: List[Subject] = []
-        compute(
+        Compute(
             english_subjects.extend,
             (semester.english_subjects for semester in self._semesters)
-        )
+        ).run()
         return english_subjects
 
     @property
     def science_subjects(self) -> List[Subject]:
         science_subjects: List[Subject] = []
-        compute(
+        Compute(
             science_subjects.extend,
             (semester.science_subjects for semester in self._semesters)
-        )
+        ).run()
         return science_subjects
 
     @property
     def sociology_subjects(self) -> List[Subject]:
         sociology_subjects: List[Subject] = []
-        compute(
+        Compute(
             sociology_subjects.extend,
             (semester.sociology_subjects for semester in self._semesters)
-        )
+        ).run()
         return sociology_subjects
 
     @property
     def etc_subjects(self) -> List[Subject]:
         etc_subjects: List[Subject] = []
-        compute(
+        Compute(
             etc_subjects.extend,
             (semester.etc_subjects for semester in self._semesters)
-        )
+        ).run()
         return etc_subjects
 
     def category_grade(self, category: SubjectCategory):

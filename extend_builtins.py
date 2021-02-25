@@ -47,17 +47,6 @@ class Filter(filter):
         return tuple(self)
 
 
-class Compute(map):
-    """Specialized version of `map`"""
-
-    def __init__(self, func: Consumer, *iterables: Iterable):
-        super(Compute, self).__init__(func, *iterables)
-
-    def run(self):
-        """Run function"""
-        tuple(self)  # Loop all iterables in map(parent class).
-
-
 # Optional<T> port
 
 class _PyOptionalException(Exception):

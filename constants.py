@@ -1,17 +1,19 @@
-from typing import ClassVar, Final
+from typing import ClassVar, Final, Dict, Union
 
 __all__ = (
+    "JSON",
     "StudentKeys",
     "SemesterKeys",
     "SubjectKeys"
 )
 
-ClassConstantString = Final[ClassVar[str]]
+JSON = Dict[str, Union[str, int, float, bytes, list, dict, None]]
+ClassConstantString = Final[str]
 
 
 class StudentKeys:
     """Key constants of Student object"""
-    key: ClassConstantString = "students"   # key of student object
+    key: ClassConstantString = "student"   # key of student object
     # Student object
     NAME: ClassConstantString = "이름"
     GRADE: ClassConstantString = "학년"
@@ -22,7 +24,7 @@ class SemesterKeys:
     key: ClassConstantString = "semesters"  # key of semesters array object
     # Semester object
     GRADE: ClassConstantString = "학년"                # key of grade
-    SEMESTER: ClassConstantString = "학기",            # key of semester
+    SEMESTER: ClassConstantString = "학기"             # key of semester
     SUBJECT_SCORES: ClassConstantString = "교과성적"    # key of subjects array object
 
 

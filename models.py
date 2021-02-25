@@ -3,14 +3,13 @@ from __future__ import annotations
 import json
 import logging
 from sys import stdout
-from abc import abstractmethod, ABC
+from abstracts import JsonObject, ParsableEnum, ComparableEnum
 from enum import Enum
-from typing import Dict, Union, NoReturn, Any, List, Tuple, Optional
-from extend_builtins import Compute, Filter
+from typing import Union, NoReturn, Any, List, Tuple
+from extend_builtins import Filter
 from constants import *
 
 __all__ = (
-    "JSON",
     "SubjectType",
     "SubjectCategory",
     "SubjectAchievementLevels",
@@ -19,8 +18,6 @@ __all__ = (
     "Student",
     "Semester"
 )
-
-JSON = Dict[str, Union[str, int, float, bytes, list, dict, None]]
 
 logger = logging.getLogger("models")
 logger.setLevel(logging.DEBUG)
@@ -32,92 +29,6 @@ handler.setFormatter(
     )
 )
 logger.addHandler(handler)
-
-
-class JsonObject(ABC):
-    @abstractmethod
-    def toJson(self) -> JSON:
-        """Parse python object(JsojObject's subclasses) into json data"""
-
-    @classmethod
-    @abstractmethod
-    def fromJson(cls, data: JSON) -> JsonObject:
-        """Parse json data into python object"""
-
-
-class ParsableEnum(Enum, ABC):
-    @classmethod
-    @abstractmethod
-    def parse(cls, value: Any) -> ParsableEnum:
-        """
-        Parse raw value into ParsableEnum instance.
-
-        Args:
-            value (Any): value to parse into ParsableEnum object.
-        """
-        ...
-
-
-class ComparableEnum(Enum, ABC):
-    @abstractmethod
-    def __eq__(self, other: Union[ComparableEnum, Any]) -> bool:
-        """
-        Override '=' operator. Compare with either ComparableEnum instance or raw value
-
-        Args:
-            other : other object to compare with this object.
-        """
-        pass
-
-    def __ne__(self, other: Union[ComparableEnum, Any]) -> bool:
-        """
-        Override '!=' operator.
-        Subclasses are not forced to override this method.
-
-        Args:
-            other : other object to compare with this object.
-        """
-        return not self.__eq__(other)
-
-    def __lt__(self, other: Union[ComparableEnum, Any]) -> bool:
-        """
-        Override '<' operator.
-        Subclasses are not forced to override this method.
-
-        Args:
-            other : other object to compare with this object.
-        """
-        return super(ComparableEnum, self).__lt__(other)
-
-    def __le__(self, other: Union[ComparableEnum, Any]) -> bool:
-        """
-        Override '<=' operator.
-        Subclasses are not forced to override this method.
-
-        Args:
-            other : other object to compare with this object.
-        """
-        return super(ComparableEnum, self).__le__(other)
-
-    def __gt__(self, other: Union[ComparableEnum, Any]) -> bool:
-        """
-        Override '>' operator.
-        Subclasses are not forced to override this method.
-
-        Args:
-            other : other object to compare with this object.
-        """
-        return super(ComparableEnum, self).__gt__(other)
-
-    def __ge__(self, other: Union[ComparableEnum, Any]) -> bool:
-        """
-        Override '>=' operator.
-        Subclasses are not forced to override this method.
-
-        Args:
-            other : other object to compare with this object.
-        """
-        return super(ComparableEnum, self).__ge__(other)
 
 
 class StringComparableEnum(ComparableEnum):
@@ -167,7 +78,7 @@ class SubjectCategory(ParsableEnum, StringComparableEnum):
         Args:
             value (str): value to parse into SubjectCategory object.
         """
-        return filter(lambda enum: enum.value == value, cls._member_map_.values()).find_first()
+        return Filter(lambda enum: enum.value == value, cls._member_map_.values()).find_first()
 
 
 class SubjectAchievementLevels(ParsableEnum, StringComparableEnum):
@@ -176,6 +87,10 @@ class SubjectAchievementLevels(ParsableEnum, StringComparableEnum):
     C = "C"
     D = "D"
     E = "E"
+    PASS = "Pass"
+    P = PASS
+    NotPass = "Not Pass"
+    NP = NotPass
 
     @classmethod
     def parse(cls, value: str) -> SubjectAchievementLevels:
@@ -185,14 +100,14 @@ class SubjectAchievementLevels(ParsableEnum, StringComparableEnum):
         Args:
             value (str): value to parse into SubjectAchievementLevels object.
         """
-        return cls._member_map_[value]
+        return cls.__members__[value]
 
 
 class Subject(JsonObject):
     """Abstract Base Class for common subjects (Relative, Absolute, PnP)"""
 
     @classmethod
-    def fromJson(cls, data: JSON) -> Subject:
+    def fromJson(cls, data: JSON, grade: int, semester: int) -> Subject:
         """Parse subject's common attributes from json data and convert to Subject object"""
         # Read raw attributes
         raw_subject_type: str = data[SubjectKeys.TYPE]
@@ -212,7 +127,9 @@ class Subject(JsonObject):
             name,
             units,
             rank,
-            achievement
+            achievement,
+            grade,
+            semester
         )
 
     def __init__(
@@ -222,7 +139,10 @@ class Subject(JsonObject):
             name: str,  # 과목명
             units: int,  # 단위수
             rank: int,  # 석차등급
-            achievement: SubjectAchievementLevels  # 교과 성취도
+            achievement: SubjectAchievementLevels,  # 교과 성취도
+            # Information injected during json parse.
+            grade: int,
+            semester: int
     ) -> NoReturn:
         """
         Initialize Subject object
@@ -236,6 +156,10 @@ class Subject(JsonObject):
         self._units: int = units
         self._rank: int = rank
         self._achievement: SubjectAchievementLevels = achievement
+
+        # Information injected during json parse.
+        self._grade: int = grade    # 학년
+        self._semester: int = semester  # 학기
 
     def toJson(self) -> JSON:
         return {
@@ -302,12 +226,30 @@ class Subject(JsonObject):
         """Subject's standard deviation (성취도)."""
         return self._achievement
 
+    # Information injected during json parse.
+    @property
+    def semesterInfo(self) -> str:
+        """Subject's grade (학년)."""
+        return f'{self._grade}학년 {self._semester}학기'
+
+    def pretty(self) -> str:
+        return f"""
+        과목명 : {self.name}
+        과목 유형 : {self.type}
+        단위수 : {self.units}
+        석차등급 : {self.rank}
+        성취도 : {self.achievement.value}
+        """
+
+    def __repr__(self) -> str:
+        return f"Subject<category={self.category},name={self.name},semesterInfo={self.semesterInfo},units={self.units},rank={self.rank}>"
+
 
 class DetailedSubject(Subject):
     """Abstract Base Class for detailed subjects (Relative, Absolute)"""
 
     @classmethod
-    def fromJson(cls, data: JSON) -> DetailedSubject:
+    def fromJson(cls, data: JSON, grade: int, semester: int) -> DetailedSubject:
         """Parse subject's common attributes from json data and convert to DetailedSubject object"""
         # Read raw attributes
         raw_subject_type: str = data[SubjectKeys.TYPE]
@@ -336,7 +278,9 @@ class DetailedSubject(Subject):
             score,
             average,
             standard_deviation,
-            participants
+            participants,
+            grade,
+            semester
         )
 
     def __init__(
@@ -352,7 +296,10 @@ class DetailedSubject(Subject):
             score: float,  # 원점수
             average: float,  # 과목평균
             standard_deviation: float,  # 표준편차
-            participants: int  # 수강자 수
+            participants: int,  # 수강자 수
+            # Information injected during json parse.
+            grade: int,
+            semester: int
     ) -> NoReturn:
         super(DetailedSubject, self).__init__(
             subject_type,
@@ -360,7 +307,9 @@ class DetailedSubject(Subject):
             name,
             units,
             rank,
-            achievement
+            achievement,
+            grade,
+            semester
         )
         self._score: float = score
         self._average: float = average
@@ -403,6 +352,19 @@ class DetailedSubject(Subject):
 
     students = listeners = participants  # Alias
 
+    def pretty(self) -> str:
+        return f"""
+        과목명 : {self.name}
+        과목 유형 : {self.type}
+        단위수 : {self.units}
+        석차등급 : {self.rank}
+        원점수 : {self.score}
+        과목평균 : {self.average}
+        표준편차 : {self.standard_deviation}
+        수강자 수 : {self.participants}
+        성취도 : {self.achievement.value}
+        """
+
 
 class Student(JsonObject):
     """JsonObject containing student's information"""
@@ -439,9 +401,9 @@ class Semester(JsonObject):
 
         raw_subjects: List[JSON] = data[SemesterKeys.SUBJECT_SCORES]
         subjects: List[Union[SubjectKeys, DetailedSubject]] = [
-            DetailedSubject.fromJson(subject)
+            DetailedSubject.fromJson(subject, grade, semester)
             if SubjectKeys.SCORE in subject
-            else Subject.fromJson(subject)
+            else Subject.fromJson(subject, grade, semester)
             for subject in raw_subjects
         ]
         return cls(
@@ -459,45 +421,40 @@ class Semester(JsonObject):
     def subjects(self) -> Tuple[Union[SubjectKeys, DetailedSubject]]:
         return tuple(self._subject_list)
 
-    def filter_category(self, category: SubjectCategory) -> Tuple[SubjectKeys, ...]:
+    def filter_category(self, category: SubjectCategory) -> Tuple[Subject, ...]:
         return tuple(filter(
             lambda s: s.category == category,
             self._subject_list
         ))
 
     @property
-    def korean_subjects(self) -> Tuple[SubjectKeys, ...]:
+    def korean_subjects(self) -> Tuple[Subject, ...]:
         return self.filter_category(SubjectCategory.KOREAN)
 
     @property
-    def math_subjects(self) -> Tuple[SubjectKeys, ...]:
+    def math_subjects(self) -> Tuple[Subject, ...]:
         return self.filter_category(SubjectCategory.MATH)
 
     @property
-    def english_subjects(self) -> Tuple[SubjectKeys, ...]:
+    def english_subjects(self) -> Tuple[Subject, ...]:
         return self.filter_category(SubjectCategory.ENGLISH)
 
     @property
-    def science_subjects(self) -> Tuple[SubjectKeys, ...]:
+    def science_subjects(self) -> Tuple[Subject, ...]:
         return self.filter_category(SubjectCategory.SCIENCE)
 
     @property
-    def sociology_subjects(self) -> Tuple[SubjectKeys, ...]:
+    def sociology_subjects(self) -> Tuple[Subject, ...]:
         return self.filter_category(SubjectCategory.SOCIOLOGY)
 
     @property
-    def etc_subjects(self) -> Tuple[SubjectKeys, ...]:
+    def etc_subjects(self) -> Tuple[Subject, ...]:
         return self.filter_category(SubjectCategory.ETC)
 
     def toJson(self) -> JSON:
         subject_scores: JSON = {}
-        Compute(
-            subject_scores.update,
-            map(
-                lambda subject: subject.toJson(),
-                self._subject_list
-            )
-        ).run()
+        for subjectJson in map(lambda s: s.toJson(), self._subject_list):
+            subject_scores.update(subjectJson)
         logger.debug(
             json.dumps(subject_scores)
         )

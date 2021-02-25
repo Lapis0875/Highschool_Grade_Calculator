@@ -1,12 +1,21 @@
-from typing import Union
+from typing import Union, Any
 import os
+import json
 
 from models import *
 from calc import *
 
 
-# Phase
+def read_json(path: str) -> JSON:
+    if not os.path.isfile(path):
+        raise ValueError(f'{path} is not a file!')
+    elif os.path.splitext(path)[1] != '.json':
+        raise ValueError(f'{path} is not a json file!')
+    with open(path, mode='rt', encoding='utf-8') as f:
+        return json.load(f)
 
+
+# Phase
 def intro():
     """Intro phase of High school grade calculator"""
     print(
@@ -21,7 +30,7 @@ def intro():
     )
 
 
-def read_data() -> Union[SingleGradeCalculator]:
+def read_data() -> Union[SingleGradeCalculator, Tuple[SingleGradeCalculator]]:
     print("="*10)
     print(
         """
@@ -30,28 +39,33 @@ def read_data() -> Union[SingleGradeCalculator]:
         2. 선택한 파일들만 열람합니다. , 로 구분해 두개 이상의 파일을 지정할 수 있습니다.
         """
     )
-    data_root: str = os.path.join(os.getcwd(), "data")
+    data_path: str = os.path.join(os.getcwd(), "data")
     answer: str = input("> ")
     if answer == "1":
-        os.f
+        data = map(lambda file: read_json(os.path.join(data_path, file)), os.listdir(data_path))
+
     elif answer == "2":
         print(
             """
             [ 내신 산출 도구 ] [ 성적 입력 ] [ 파일 이름 입력 ]
-            
+            열람할 파일을 , 로 구분해 입력해주세요. 띄어쓰기는 사용하지 마세요.
             """
         )
-        filenames: str = input('>')
+        filenames: List[str, ...] = input('> ').split(',')
+        data = map(lambda file: read_json(os.path.join(data_path, file)), filenames)
+    else:
+        raise ValueError(f'{answer} 은 지원되지 않는 선택지입니다!')
+    calcs = tuple(map(lambda datum: SingleGradeCalculator(datum), data))
+    if len(calcs) == 1:
+        return calcs[0]
+    return calcs
 
-    
 
+def viewer(calc: Union[SingleGradeCalculator, Tuple[SingleGradeCalculator]]):
+    if isinstance(calc, tuple):
+        # Multiple calcs.
+        raise ValueError('WIP - Not implemented.')
 
-
-def main():
-    """내신 총점을 다양하게 산출합니다."""
-    intro()
-    calculator = read_data()
-    print("="*10)
     print(
         """
         [ 내신 산출 도구 ] [ 계산 방식 ]
@@ -67,8 +81,17 @@ def main():
         10. 수과
         """
     )
-    input("")
+    choice = input("> ")
+    calc.category_grades()
 
+
+def main():
+    """내신 총점을 다양하게 산출합니다."""
+    intro()
+    calculators: Union[SingleGradeCalculator, Tuple[SingleGradeCalculator]] = read_data()
+    print("="*10)
+    viewer(calculators)
+    
 
 if __name__ == "__main__":
     main()
